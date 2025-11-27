@@ -4,6 +4,8 @@ from app.models.AI_model import MODEL
 import numpy as np
 import pandas as pd
 from app.utils.telegram_util import enviar_telegram
+from app.services.thingsboard_service import enviar_a_thingsboard, datos_esp_thingsboard
+import requests
 
 router = APIRouter(prefix="/IAmodel", tags=["IAmodel"])
 
@@ -29,6 +31,19 @@ def evaluar_riesgo(payload: Telemetria):
         "riesgo": str(pred),
         "probabilidad": round(proba*100, 2)
     }
+
+    enviar_a_thingsboard({
+        "probabilidad_incendio": round(proba * 100, 2),
+        "riesgo_clase": str(pred),
+        
+    })
+    datos_esp_thingsboard({
+        "temperatura": payload.temperatura,
+        "humo": payload.humo,
+        "tamaño": payload.tamaño
+    })
+
+
 
     # enviar alerta si riesgo alto
     if proba > 0.7:
