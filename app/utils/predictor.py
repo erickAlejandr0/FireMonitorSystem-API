@@ -51,11 +51,9 @@ def process_message(esp_id, payload):
     # ============================
     return {
         "esp32": esp_id,
-        "entrada_cruda": {
-            "temp_ao": temp,
-            "humo_ao": humo,
-            "llama_do": llama
-        },
+        "temp_ao": temp,
+        "humo_ao": humo,
+        "llama_do": llama,
         "prediccion": pred,
         "probabilidades": prob_dict
     }
