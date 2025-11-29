@@ -41,10 +41,9 @@ def process_message(esp_id, payload):
     probas = model.predict_proba(X_scaled)[0]
     clases = model.classes_
 
-    prob_dict = {
-        clase: round(float(prob), 4)
-        for clase, prob in zip(clases, probas)
-    }
+    idx = list(clases).index(pred)
+    prob_pred = round(float(probas[idx]), 4)
+
 
     # ============================
     # 5. Respuesta final
@@ -55,5 +54,5 @@ def process_message(esp_id, payload):
         "humo_ao": humo,
         "llama_do": llama,
         "prediccion": pred,
-        "probabilidades": prob_dict
+        "probabilidades": prob_pred
     }
