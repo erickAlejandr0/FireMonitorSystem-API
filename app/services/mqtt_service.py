@@ -4,6 +4,9 @@ import paho.mqtt.client as paho
 from paho import mqtt
 from app.utils.predictor import process_message
 from app.services.thingsboard_service import enviar_a_thingsboard
+from app.models.AI_model import cargar_modelos
+
+
 
 MQTT_HOST = "f57dc7cc97d9435093073870cc206dff.s1.eu.hivemq.cloud"
 MQTT_PORT = 8883
@@ -14,6 +17,8 @@ TOPICS = [
     ("incendios/esp32_1/data", 1),
     ("incendios/esp32_2/data", 1)
 ]
+
+cargar_modelos()
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print("Conectado a HiveMQ Cloud con código:", rc)
