@@ -52,7 +52,9 @@ def process_message(esp_id, payload):
         float(prob) for clase, prob in zip(model.classes_, model.predict_proba(X_scaled)[0])
         if clase in clases_riesgo
     )
-
+    print(f" Probabilidades por clase: {dict(zip(clases, probas))}")
+    print(f" Probabilidad de incendio (Alerta + Crítico): {prob_incendio}")
+    
     # ============================
     # 5. Respuesta final
     # ============================
