@@ -10,6 +10,7 @@ import threading
 
 load_dotenv()
 app = FastAPI(title="Fire Monitoring System")
+app.get("/")(lambda: {"message": "Fire Monitoring System API is running."})
 
 # Inicializar ThingsBoard
 threading.Thread(target=iniciar_conexion_tb, daemon=True).start()
