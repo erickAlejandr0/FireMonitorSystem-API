@@ -13,9 +13,9 @@ def process_message(esp_id, payload):
     # 1. Extraer valores crudos
     # ============================
     try:
-        humo = float(payload["humo_ao"])
-        temp = float(payload["temp_ao"])
-        llama = int(payload["llama_do"])
+        humo = float(payload["humo"])
+        temp = float(payload["temperatura"])
+        llama = int(payload["llama"])
     except KeyError as e:
         return {"error": f"Falta el campo {e}"}
 
@@ -50,9 +50,9 @@ def process_message(esp_id, payload):
     # ============================
     return {
         "esp32": esp_id,
-        "temp_ao": temp,
-        "humo_ao": humo,
-        "llama_do": llama,
+        "temperatura": temp,
+        "humo": humo,
+        "llama": llama,
         "prediccion": pred,
         "probabilidades": prob_pred
     }

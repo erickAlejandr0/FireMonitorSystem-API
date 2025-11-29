@@ -35,7 +35,7 @@ def on_message(client, userdata, msg):
         resultado = process_message(esp_id, payload)
         enviar_a_thingsboard(esp_id, resultado)
 
-        print(f"📊 Resultado modelo ({esp_id}): {resultado}")
+        print(f" Resultado modelo ({esp_id}): {resultado}")
 
     except Exception as e:
         print("⚠️ Error procesando mensaje:", e)
