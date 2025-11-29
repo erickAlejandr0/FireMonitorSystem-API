@@ -58,6 +58,6 @@ def process_message(esp_id, payload):
         "temperatura": temperatura,
         "humo": humo,
         "llama": llama,
-        "prediccion": pred,
+        "riesgo": pred,
         "probabilidades": prob_incendio
     }
