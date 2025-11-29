@@ -7,7 +7,7 @@ from app.services.thingsboard_service import enviar_a_thingsboard
 from app.models.AI_model import cargar_modelos
 
 
-MQTT_HOST = "f57dc7cc97d9435093073870cc206dff.s1.eu.hivemq.cloud"
+MQTT_HOST = "v21e7d52.ala.us-east-1.emqxsl.com"
 MQTT_PORT = 8883
 MQTT_USER = "firemonitorsysclust"
 MQTT_PASSWORD = "IoT8PROJECT"
@@ -17,7 +17,7 @@ TOPICS = [
     ("incendios/esp32_2/data", 1)
 ]
 
-client = paho.Client(client_id="", userdata=None, protocol=paho.MQTTv5)
+client = paho.Client(client_id="api_server_listener", userdata=None, protocol=paho.MQTTv5)
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print("Conectado a HiveMQ Cloud con código:", rc)
