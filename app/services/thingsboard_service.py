@@ -1,5 +1,6 @@
 import json
 import paho.mqtt.client as mqtt
+import time
 
 # Tokens únicos por dispositivo ThingsBoard
 DEVICE_TOKENS = {
@@ -35,8 +36,11 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
 
         client.publish("v1/devices/me/telemetry", payload, qos=1)
 
-        client.disconnect()
+        time.sleep(0.5)  # Esperar a que se envíe todo
 
+        client.loop_stop()
+
+        client.disconnect()
         print(f"[ThingsBoard] Telemetría enviada a {esp_id}[token: {token}]: {payload}")
 
     except Exception as e:
