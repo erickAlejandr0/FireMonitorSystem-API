@@ -20,7 +20,7 @@ def process_message(esp_id, payload):
         return {"error": f"Falta el campo {e}"}
 
     # Vector ordenado tal como fue durante el entrenamiento
-    X = np.array([[temp, humo, llama]])
+    X = np.array([[temp, humo, llama]],dtype=float)
 
     # ============================
     # 2. Obtener modelo correcto
