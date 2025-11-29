@@ -30,13 +30,20 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
     try:
         client.connect(TB_HOST, TB_PORT, 60)
 
-        payload = json.dumps(datos)
+        payload_tb = {
+            "temp_ao": datos["entrada_cruda"]["temp_ao"],
+            "humo_ao": datos["entrada_cruda"]["humo_ao"],
+            "llama_do": datos["entrada_cruda"]["llama_do"],
+            "prediccion": datos["prediccion"]
+        }
 
-        client.publish("v1/devices/me/telemetry", payload, qos=1)
+        payload_json = json.dumps(payload_tb)
+
+        client.publish("v1/devices/me/telemetry", payload_json, qos=1)
 
         client.disconnect()
 
-        print(f"[ThingsBoard] Telemetría enviada a {esp_id}: {payload}")
+        print(f"[ThingsBoard] Telemetría enviada a {esp_id}: {payload_json}")
 
     except Exception as e:
         print(f"[ThingsBoard] Error enviando telemetría: {e}")
