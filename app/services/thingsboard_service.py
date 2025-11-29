@@ -22,7 +22,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
     token = DEVICE_TOKENS[esp_id]
 
     # Crear un cliente MQTT para ese dispositivo
-    client = mqtt.Client()
+    client = mqtt.Client(protocol=mqtt.MQTTv311)
 
     # Autenticación ThingsBoard = token como usuario
     client.username_pw_set(token)
@@ -32,7 +32,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
 
         payload = json.dumps(datos)
 
-        client.publish("v1/devices/me/telemetry", payload)
+        client.publish("v1/devices/me/telemetry", payload, qos=1)
 
         client.disconnect()
 
