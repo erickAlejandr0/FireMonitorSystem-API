@@ -1,6 +1,7 @@
 # app/predictor.py
 
 import numpy as np
+import pandas as pd
 from app.models.AI_model import get_modelo_y_scaler
 
 def process_message(esp_id, payload):
@@ -20,7 +21,7 @@ def process_message(esp_id, payload):
         return {"error": f"Falta el campo {e}"}
 
     # Vector ordenado tal como fue durante el entrenamiento
-    X = np.array([[temperatura, humo, llama]],columns=["temperatura", "humo", "llama"])
+    X = pd.DataFrame([[temperatura, humo, llama]],columns=["temperatura", "humo", "llama"])
 
     # ============================
     # 2. Obtener modelo correcto
