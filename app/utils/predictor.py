@@ -44,6 +44,11 @@ def process_message(esp_id, payload):
     idx = list(clases).index(pred)
     prob_pred = round(float(probas[idx]), 4)
 
+    clases_riesgo = ["Alerta", "Crítico"]
+    prob_incendio = sum(
+        float(prob) for clase, prob in zip(model.classes_, model.predict_proba(X_scaled)[0])
+        if clase in clases_riesgo
+    )
 
     # ============================
     # 5. Respuesta final
@@ -54,5 +59,5 @@ def process_message(esp_id, payload):
         "humo": humo,
         "llama": llama,
         "prediccion": pred,
-        "probabilidades": prob_pred
+        "probabilidades": prob_incendio
     }
