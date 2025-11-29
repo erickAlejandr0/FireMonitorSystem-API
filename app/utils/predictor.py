@@ -14,13 +14,13 @@ def process_message(esp_id, payload):
     # ============================
     try:
         humo = float(payload["humo"])
-        temp = float(payload["temperatura"])
+        temperatura = float(payload["temperatura"])
         llama = int(payload["llama"])
     except KeyError as e:
         return {"error": f"Falta el campo {e}"}
 
     # Vector ordenado tal como fue durante el entrenamiento
-    X = np.array([[temp, humo, llama]],dtype=float)
+    X = np.array([[temperatura, humo, llama]],dtype=float)
 
     # ============================
     # 2. Obtener modelo correcto
@@ -55,7 +55,7 @@ def process_message(esp_id, payload):
     # ============================
     return {
         "esp32": esp_id,
-        "temperatura": temp,
+        "temperatura": temperatura,
         "humo": humo,
         "llama": llama,
         "prediccion": pred,

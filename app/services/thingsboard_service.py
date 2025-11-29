@@ -26,6 +26,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
 
     # Autenticación ThingsBoard = token como usuario
     client.username_pw_set(token)
+    
 
     try:
         client.connect(TB_HOST, TB_PORT, 60)
@@ -36,7 +37,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
 
         client.disconnect()
 
-        print(f"[ThingsBoard] Telemetría enviada a {esp_id}: {payload}")
+        print(f"[ThingsBoard] Telemetría enviada a {esp_id}[token: {token}]: {payload}")
 
     except Exception as e:
         print(f"[ThingsBoard] Error enviando telemetría: {e}")
