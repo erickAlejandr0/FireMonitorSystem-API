@@ -19,9 +19,11 @@ def process_message(esp_id, payload):
         llama = int(payload["llama"])
     except KeyError as e:
         return {"error": f"Falta el campo {e}"}
+    
+    hm = humo / 4095.0
 
     # Vector ordenado tal como fue durante el entrenamiento
-    X = pd.DataFrame([[temperatura, humo, llama]],columns=["temperatura", "humo", "llama"])
+    X = pd.DataFrame([[temperatura, hm, llama]],columns=["temperatura", "humo", "llama"])
 
     # ============================
     # 2. Obtener modelo correcto
