@@ -60,5 +60,5 @@ def process_message(esp_id, payload):
         "humo": humo,
         "llama": llama,
         "riesgo": pred,
-        "probabilidades": prob_incendio
+        "probabilidades": (prob_incendio * 100)
     }
