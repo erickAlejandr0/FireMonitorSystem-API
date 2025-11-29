@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 
 from app.services.mqtt_service import init_mqtt
-from app.services.thingsboard_service import iniciar_conexion_tb
+
 
 load_dotenv()
 
