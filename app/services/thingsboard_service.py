@@ -71,19 +71,17 @@ def enviar_a_thingsboard(esp_id: str, datos: dict) -> bool:
     try:
         # ===== 2. Preparar payload de telemetría =====
         payload = {
-            "ts": int(time.time() * 1000),  # Timestamp en milisegundos
-            "values": {
-                "temperatura": datos.get("temperatura"),
-                "humo": datos.get("humo"),
-                "llama": datos.get("llama"),
-                "estado": datos.get("estado"),
-                "descripcion": datos.get("descripcion"),
-                "riesgo_incendio": datos.get("riesgo_incendio"),
-                "probs_fire": datos.get("probs", {}).get("fire"),
-                "probs_flame": datos.get("probs", {}).get("flame"),
-                "probs_smoke": datos.get("probs", {}).get("smoke-gas"),
-                "probs_normal": datos.get("probs", {}).get("normal"),
-            }
+         
+            "temperatura": datos.get("temperatura"),
+            "humo": datos.get("humo"),
+            "llama": datos.get("llama"),
+            "estado": datos.get("estado"),
+            "descripcion": datos.get("descripcion"),
+            "riesgo_incendio": datos.get("riesgo_incendio"),
+            "probs_fire": datos.get("probs", {}).get("fire"),
+            "probs_flame": datos.get("probs", {}).get("flame"),
+            "probs_smoke": datos.get("probs", {}).get("smoke-gas"),
+            "probs_normal": datos.get("probs", {}).get("normal"),
         }
 
         # ===== 3. Enviar solicitud HTTP con reintentos =====
