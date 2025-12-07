@@ -34,8 +34,8 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
 
     is_connected = False
     published_success = False
-    # Autenticación ThingsBoard = token como usuario
-    #client.username_pw_set(token)
+   
+    
 
     def on_connect(client, userdata, flags, rc):
         nonlocal is_connected
@@ -65,6 +65,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict):
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     client.on_publish = on_publish
+    client.username_pw_set(token)
 
 
     try:
