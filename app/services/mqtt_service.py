@@ -1,125 +1,127 @@
+import os
 import json
+import time
+import random
 import threading
-import paho.mqtt.client as paho
+import logging
+from paho.mqtt import client as mqtt_client
 from paho import mqtt
 from app.utils.predictor import process_message
 from app.services.thingsboard_service import enviar_a_thingsboard
-import os
-import time
 
+# ===== Logging DEBUG =====
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("MQTTService")
 
+# ===== Configuración desde variables de entorno =====
 MQTT_HOST = os.getenv("MQTT_HOST")
-MQTT_PORT = int(os.getenv("MQTT_PORT"))
+MQTT_PORT = int(os.getenv("MQTT_PORT", 8883))  # TLS serverless por defecto
 MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+CA_CERT = os.getenv("MQTT_CA_CERT", "./server-ca.crt")  # Ruta al certificado EMQX
 
 TOPICS = [
     ("incendios/esp32_1/data", 1),
     ("incendios/esp32_2/data", 1)
 ]
-INACTIVITY_TIMEOUT = 60
+
+INACTIVITY_TIMEOUT = 60  # segundos
+
+# ===== Estado global =====
 last_message_time = time.time()
-is_connected = False   
+is_connected = False
 
-client = paho.Client(client_id="api_server_listener", userdata=None, protocol=paho.MQTTv5)
+# ===== Generar client_id único =====
+client_id = f"api_server_listener_{random.randint(0,1000)}"
+client = mqtt_client.Client(client_id=client_id, userdata=None, protocol=mqtt_client.MQTTv5)
 
+# ===== Callbacks =====
 def on_connect(client, userdata, flags, rc, properties=None):
     global is_connected
-    is_connected = True
-    print("Conectado a EMXQ Cloud con código:", rc)
-    for topic, qos in TOPICS:
-        client.subscribe(topic, qos=qos)
-        print("Suscrito a:", topic)
+    if rc == 0:
+        is_connected = True
+        logger.info(f"Conectado a EMQX Cloud (rc={rc})")
+        for topic, qos in TOPICS:
+            client.subscribe(topic, qos=qos)
+            logger.info(f"Suscrito a topic: {topic}")
+    else:
+        logger.error(f"Error al conectar, rc={rc}")
 
 def on_disconnect(client, userdata, rc, properties=None):
     global is_connected
     is_connected = False
-    print("Desconectado del broker (rc:", rc, ")")
-
-    # Si se desconectó por error, activar reconexión automática del loop
+    logger.warning(f"Desconectado del broker (rc={rc})")
     if rc != 0:
-        print("Intentando reconectar automáticamente…")
-
+        logger.info("Intentando reconectar automáticamente...")
 
 def on_message(client, userdata, msg):
     global last_message_time
     last_message_time = time.time()
     try:
-
-        try:
-
-            payload = json.loads(msg.payload.decode())
-            esp_id = msg.topic.split("/")[1]
-        except json.JSONDecodeError as e:
-            print(f" Error decodificando JSON del mensaje recibido: {msg.payload}")
-            print(f" Detalles del error: {e}")
-            return
-        
-        print(f"\n Mensaje recibido de {esp_id}: {payload}")
+        payload = json.loads(msg.payload.decode())
+        esp_id = msg.topic.split("/")[1]
+        logger.info(f"Mensaje recibido de {esp_id}: {payload}")
 
         resultado = process_message(esp_id, payload)
         exito = enviar_a_thingsboard(esp_id, resultado)
 
         if exito:
-            print(f" Telemetría enviada a ThingsBoard desde mqtt service para {esp_id}")
+            logger.info(f"Telemetría enviada a ThingsBoard para {esp_id}")
         else:
-            print(f" Error enviando telemetría a ThingsBoard desde mqtt service para {esp_id}")
+            logger.error(f"Error enviando telemetría a ThingsBoard para {esp_id}")
 
-        print(f" Resultado modelo ({esp_id}): {resultado}")
-    except UnicodeDecodeError:
-        print(f" Error decodificando el mensaje recibido: {msg.payload}")
+        logger.info(f"Resultado modelo ({esp_id}): {resultado}")
+
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        logger.error(f"Error decodificando mensaje: {msg.payload} - {e}")
     except Exception as e:
-        print(" Error procesando mensaje:", e)
-        print(" Mensaje original:", msg.payload)
-        print(f" Topic: {msg.topic} QoS: {msg.qos}")
+        logger.exception(f"Error procesando mensaje: {e} - Topic: {msg.topic} QoS: {msg.qos}")
 
-
+# ===== Inicialización MQTT =====
 def init_mqtt():
-    """Arranca el cliente MQTT en segundo plano sin bloquear FastAPI."""
+    global client, last_message_time, is_connected
 
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     client.on_message = on_message
 
-    client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
+    # Configuración TLS y autenticación
+    client.tls_set(ca_certs=CA_CERT, tls_version=mqtt_client.ssl.PROTOCOL_TLS)
     client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
+    # Reconexión automática con backoff
     client.reconnect_delay_set(min_delay=1, max_delay=30)
 
     try:
         client.connect(MQTT_HOST, MQTT_PORT)
         client.loop_start()
-        print("✔ MQTT cliente iniciado en background")
+        logger.info("✔ MQTT cliente iniciado en background")
     except Exception as e:
-        print(f"✗ Error iniciando MQTT: {e}")
+        logger.exception(f"✗ Error iniciando MQTT: {e}")
         return
 
-
-    print("✔ MQTT corriendo en background")
-
-      # Monitor de inactividad
     def inactivity_monitor():
         global last_message_time, is_connected
         while True:
-            time.sleep(INACTIVITY_TIMEOUT / 2)  # Verificar cada 30s
-
-
-            time_elapsed = time.time() - last_message_time
-            if time_elapsed > INACTIVITY_TIMEOUT:
-                print(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT} segundos. Desconectando MQTT.")
-                client.disconnect()
+            time.sleep(INACTIVITY_TIMEOUT / 2)
+            elapsed = time.time() - last_message_time
+            if elapsed > INACTIVITY_TIMEOUT:
+                logger.warning(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT}s. Reiniciando conexión MQTT.")
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
                 is_connected = False
-            
-            print("[MQTT] Intentando reconectar…")
+
             while not is_connected:
                 try:
                     client.reconnect()
-                    print("[MQTT] Reconexión exitosa.")
+                    logger.info("Reconexión MQTT exitosa.")
                     break
                 except Exception as e:
-                    print(f"[MQTT] Fallo de reconexión: {e}. Reintentando en 5s...")
+                    logger.warning(f"Fallo de reconexión: {e}. Reintentando en 5s...")
                     time.sleep(5)
-                
 
     monitor_thread = threading.Thread(target=inactivity_monitor, daemon=True)
     monitor_thread.start()
+    logger.info("✔ Monitor de inactividad MQTT iniciado")
