@@ -79,7 +79,7 @@ def process_message(esp_id, payload):
         if prob_smoke < 0.10 or prob_flame < 0.10 or prob_fire < 0.10 or prob_normal >= 0.80:
             desc = "Condiciones normales detectadas."
         elif prob_smoke < 0.25:
-            desc = "se detectaron fluctuaciones en el aire, monitoree la situación."
+            desc = "se detectaron fluctuaciones en el aire, monitoree la situacion."
         else:
             desc = "calculando condiciones seguras, se recomienda vigilancia continua."
 
@@ -88,18 +88,18 @@ def process_message(esp_id, payload):
         if prob_smoke >= 0.35:
             desc = "Niveles elevados de humo detectados, verifique las alertas de temperatura y llama"
         else:
-            desc = "Condiciones inestables detectadas, manténgase alerta y monitoree los sensores."
+            desc = "Condiciones inestables detectadas, mantengase alerta y monitoree los sensores."
 
     else:
-        estado = "Crítico"
+        estado = "Critico"
         if prob_fire >= 0.40 :
             desc = "Alto riesgo de incendio detectado"
         elif prob_smoke >= 0.60:
-            desc = "Niveles críticos de humo detectados, posible incendio en curso"
+            desc = "Niveles criticos de humo detectados, posible incendio en curso"
         elif prob_flame >= 0.40 and prob_smoke >= 0.40:
             desc = "Llama y humo detectados, riesgo inminente de incendio"
         else:
-            desc = "Condiciones peligrosas detectadas, acción inmediata requerida"
+            desc = "Condiciones peligrosas detectadas, accion inmediata requerida"
     # ============================
     # 6. Respuesta limpia
     # ============================
