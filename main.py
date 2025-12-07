@@ -18,6 +18,7 @@ def root():
 async def startup_event():
 
     # MQTT en segundo plano
-    threading.Thread(target=init_mqtt, daemon=True).start()
+    init_mqtt()
+    print("✔ Servicios iniciados en startup_event MQTT +FastAPI")
 
 
