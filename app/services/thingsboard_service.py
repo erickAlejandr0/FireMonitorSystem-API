@@ -1,108 +1,137 @@
 import json
-import paho.mqtt.client as mqtt
-import time
+import requests
 import os
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# Tokens únicos por dispositivo ThingsBoard
+# ===== Configuración HTTP =====
+TB_HOST = os.getenv("TB_HOST")
+TB_PORT = os.getenv("TB_PORT")
+
 DEVICE_TOKENS = {
     "esp32_1": os.getenv("ESP32_1_TOKEN"), 
     "esp32_2": os.getenv("ESP32_2_TOKEN")
 }
 
-TB_HOST = os.getenv("TB_HOST")  # Nombre del servidor ThingsBoard
-TB_PORT = int(os.getenv("TB_PORT"))  # MQTT 
+# Validaciones
+if not TB_HOST:
+    raise ValueError("TB_HOST no configurado en .env")
 
-if not TB_HOST or not TB_PORT:
-    raise ValueError("TB_HOST o TB_PORT no están configurados en las variables de entorno.")
+if not TB_PORT:
+    raise ValueError("TB_PORT no configurado en .env")
 
 if not all(DEVICE_TOKENS.values()):
-    raise ValueError("Faltan tokens de dispositivos en las variables de entorno.")  
+    raise ValueError("Faltan tokens ESP32_1_TOKEN o ESP32_2_TOKEN en .env")
 
-def enviar_a_thingsboard(esp_id: str, datos: dict):
-    """
-    Envía telemetría a un dispositivo específico en ThingsBoard según el ESP32.
-    """
+# Construir URL base
+TB_HTTP_URL = f"http://{TB_HOST}:{TB_PORT}/api/v1"
 
+print(f"[ThingsBoard] URL configurada: {TB_HTTP_URL}")
+
+
+def crear_sesion_con_reintentos():
+    """
+    Crea una sesión HTTP con reintentos automáticos.
+    """
+    sesion = requests.Session()
+    reintentos = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504]
+    )
+    adaptador = HTTPAdapter(max_retries=reintentos)
+    sesion.mount("http://", adaptador)
+    sesion.mount("https://", adaptador)
+    return sesion
+
+
+def enviar_a_thingsboard(esp_id: str, datos: dict) -> bool:
+    """
+    Envía telemetría a ThingsBoard vía HTTP REST API.
+    
+    Endpoint: POST /api/v1/{token}/telemetry
+    
+    Args:
+        esp_id: Identificador del ESP32 ("esp32_1" o "esp32_2")
+        datos: Diccionario con los datos a enviar
+    
+    Returns:
+        bool: True si se envió exitosamente, False si hubo error
+    """
+    
+    # ===== 1. Validar ESP ID =====
     if esp_id not in DEVICE_TOKENS:
-        print(f"[ThingsBoard] ESP ID no reconocido: {esp_id}")
-        return
+        print(f"❌ [ThingsBoard] ESP ID no reconocido: {esp_id}")
+        return False
 
     token = DEVICE_TOKENS[esp_id]
-
-    # Crear un cliente MQTT para ese dispositivo
-    client = mqtt.Client(client_id=f"api_{esp_id}",protocol=mqtt.MQTTv311)
-
-    is_connected = False
-    published_success = False
-   
-    
-
-    def on_connect(client, userdata, flags, rc):
-        nonlocal is_connected
-        if rc == 0:
-            is_connected = True
-            print(f"[ThingsBoard] Conectado al ThingsBoard como {esp_id} (rc={rc})")
-        else:
-            print(f"[ThingsBoard] Falló la conexión a ThingsBoard (rc={rc})")
-
-    def on_disconnect(client, userdata, rc):
-        nonlocal is_connected
-        is_connected = False
-        print(f"[ThingsBoard] Desconectado de ThingsBoard (rc={rc})")
-        if rc != 0:
-            print("[Thingsboard] desconexion inesperada")
-    
-    def on_publish(client, userdata, mid):
-        nonlocal published_success
-        published_success = True
-        print(f"[ThingsBoard] Mensaje publicado con en: {esp_id}")
-
-    def on_disconect_final(client, userdata, rc):
-        if rc == 0:
-            print(f"[ThingsBoard] Desconectado finalmente de ThingsBoard como {esp_id}")
-
-
-    client.on_connect = on_connect
-    client.on_disconnect = on_disconnect
-    client.on_publish = on_publish
-    client.username_pw_set(token)
-
+    url = f"{TB_HTTP_URL}/{token}/telemetry"
 
     try:
-        client.connect(TB_HOST, TB_PORT, keepalive=60)
-        client.loop_start()
+        # ===== 2. Preparar payload de telemetría =====
+        payload = {
+            "ts": int(time.time() * 1000),  # Timestamp en milisegundos
+            "values": {
+                "temperatura": datos.get("temperatura"),
+                "humo": datos.get("humo"),
+                "llama": datos.get("llama"),
+                "estado": datos.get("estado"),
+                "descripcion": datos.get("descripcion"),
+                "riesgo_incendio": datos.get("riesgo_incendio"),
+                "probs_fire": datos.get("probs", {}).get("fire"),
+                "probs_flame": datos.get("probs", {}).get("flame"),
+                "probs_smoke": datos.get("probs", {}).get("smoke-gas"),
+                "probs_normal": datos.get("probs", {}).get("normal"),
+            }
+        }
 
-        timeout = time.time() + 5  # segundos
-        while not is_connected and time.time() < timeout:
-            time.sleep(0.1)
+        # ===== 3. Enviar solicitud HTTP con reintentos =====
+        sesion = crear_sesion_con_reintentos()
         
-        if not is_connected:
-            print(f"[ThingsBoard] No se pudo conectar a ThingsBoard en el tiempo esperado para {esp_id}.")
-            client.loop_stop()
-            return
-        
-        payload = json.dumps(datos)
+        response = sesion.post(
+            url,
+            json=payload,
+            timeout=5,
+            headers={"Content-Type": "application/json"}
+        )
 
-        result = client.publish("v1/devices/me/telemetry", payload, qos=1)
-
-        if published_success:
-            print(f"[ThingsBoard] Telemetría publicada exitosamente para {esp_id}.")
-            return True
-        else:
-            print(f"[ThingsBoard] Falló la publicación de telemetría para {esp_id}.")
-            return False
+        # ===== 4. Validar respuesta =====
+        response.raise_for_status()
         
-    except ConnectionRefusedError:
-        print(f"[ThingsBoard] Conexión rechazada al ThingsBoard para {esp_id}. Verifica el token y la conectividad.{TB_HOST}:{TB_PORT}")
-    except TimeoutError:
-        print(f"[ThingsBoard] Tiempo de espera agotado al conectar con ThingsBoard para {TB_HOST}:{TB_PORT} ")
-    except Exception as e:
-        print("error enviando telemetria [Thingsboard]")
+        print(f"✔ [ThingsBoard] Telemetría enviada exitosamente para {esp_id}")
+        print(f"   → URL: {url}")
+        print(f"   → Payload: {json.dumps(payload, indent=2)}")
+        
+        return True
+
+    except requests.exceptions.ConnectionError as e:
+        print(f"ThingsBoard] Error de conexión a {TB_HTTP_URL}")
+        print(f"   → Verifica que ThingsBoard esté corriendo en {TB_HOST}:{TB_PORT}")
+        print(f"   → Detalles: {e}")
         return False
-    finally:
-        try:
-            client.loop_stop()
-            client.on_disconnect = on_disconect_final
-            client.disconnect()
-        except Exception as e:
-            print(f"[ThingsBoard] Error en la desconexión final: {e}")
+        
+    except requests.exceptions.Timeout:
+        print(f"[ThingsBoard] Timeout: ThingsBoard tardó más de 5 segundos en responder")
+        print(f"   → Endpoint: {url}")
+        return False
+        
+    except requests.exceptions.HTTPError as e:
+        status_code = response.status_code
+        response_text = response.text
+        
+        if status_code == 401:
+            print(f"[ThingsBoard] Error 401 (No autorizado): Token inválido para {esp_id}")
+        elif status_code == 404:
+            print(f"[ThingsBoard] Error 404 (No encontrado): Verifica el token y la URL")
+        else:
+            print(f"[ThingsBoard] Error HTTP {status_code}: {e}")
+        
+        print(f"   → Respuesta del servidor: {response_text}")
+        return False
+        
+    except Exception as e:
+        print(f"[ThingsBoard] Error inesperado al enviar telemetría: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
