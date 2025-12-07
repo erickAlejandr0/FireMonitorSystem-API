@@ -103,15 +103,22 @@ def init_mqtt():
         while True:
             time.sleep(INACTIVITY_TIMEOUT / 2)  # Verificar cada 30s
 
-            if not is_connected:
-                continue
 
             time_elapsed = time.time() - last_message_time
             if time_elapsed > INACTIVITY_TIMEOUT:
                 print(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT} segundos. Desconectando MQTT.")
                 client.disconnect()
                 is_connected = False
-                
+            
+            print("[MQTT] Intentando reconectar…")
+            while not is_connected:
+                try:
+                    client.reconnect()
+                    print("[MQTT] Reconexión exitosa.")
+                    break
+                except Exception as e:
+                    print(f"[MQTT] Fallo de reconexión: {e}. Reintentando en 5s...")
+                    time.sleep(5)
                 
 
     monitor_thread = threading.Thread(target=inactivity_monitor, daemon=True)
