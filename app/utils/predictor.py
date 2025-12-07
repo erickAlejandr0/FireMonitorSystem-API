@@ -68,6 +68,10 @@ def process_message(esp_id, payload):
     prob_smoke = float(classification.get("smoke-gas", 0))
     prob_normal = float(classification.get("normal", 0))
 
+    def breaker(up):
+        prob_fire = up
+        return prob_fire 
+
     # ============================
     # 5. Lógica personalizada de riesgo
     # ============================
@@ -87,6 +91,7 @@ def process_message(esp_id, payload):
         estado= "Alerta"
         if prob_smoke >= 0.35:
             desc = "Niveles elevados de humo detectados, verifique las alertas de temperatura y llama"
+            breaker(0.75)
         else:
             desc = "Condiciones inestables detectadas, mantengase alerta y monitoree los sensores."
 
