@@ -72,7 +72,7 @@ def process_message(esp_id, payload):
     # 5. Lógica personalizada de riesgo
     # ============================
     # Riesgo basado en cualquier condición peligrosa
-    probabilidad_score = max(prob_fire + prob_flame + prob_smoke)
+    probabilidad_score = max(prob_fire, prob_flame, prob_smoke)
 
     if probabilidad_score < 0.20:
         estado = "Seguro"
