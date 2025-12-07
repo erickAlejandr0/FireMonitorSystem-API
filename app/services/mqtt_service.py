@@ -4,33 +4,51 @@ import paho.mqtt.client as paho
 from paho import mqtt
 from app.utils.predictor import process_message
 from app.services.thingsboard_service import enviar_a_thingsboard
-from app.models.AI_model import cargar_modelos
+import os
+import time
 
 
-MQTT_HOST = "v21e7d52.ala.us-east-1.emqxsl.com"
-MQTT_PORT = 8883
-MQTT_USER = "firemonitorsysclust"
-MQTT_PASSWORD = "IoT8PROJECT"
+MQTT_HOST = os.getenv("MQTT_HOST")
+MQTT_PORT = int(os.getenv("MQTT_PORT"))
+MQTT_USER = os.getenv("MQTT_USER")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 
 TOPICS = [
     ("incendios/esp32_1/data", 1),
     ("incendios/esp32_2/data", 1)
 ]
+INACTIVITY_TIMEOUT = 60
+last_message_time = time.time()
+is_connected = False   
 
 client = paho.Client(client_id="api_server_listener", userdata=None, protocol=paho.MQTTv5)
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print("Conectado a HiveMQ Cloud con código:", rc)
+    global is_connected
+    is_connected = True
+    print("Conectado a EMXQ Cloud con código:", rc)
     for topic, qos in TOPICS:
         client.subscribe(topic, qos=qos)
         print("Suscrito a:", topic)
 
+def on_disconnect(client, userdata, rc, properties=None):
+    global is_connected
+    is_connected = False
+    print("Desconectado del broker (rc:", rc, ")")
+
+    # Si se desconectó por error, activar reconexión automática del loop
+    if rc != 0:
+        print("Intentando reconectar automáticamente…")
+
+
 def on_message(client, userdata, msg):
+    global last_message_time
+    last_message_time = time.time()
     try:
         payload = json.loads(msg.payload.decode())
         esp_id = msg.topic.split("/")[1]
 
-        print(f"\n📥 Mensaje recibido de {esp_id}: {payload}")
+        print(f"\n Mensaje recibido de {esp_id}: {payload}")
 
         resultado = process_message(esp_id, payload)
         enviar_a_thingsboard(esp_id, resultado)
@@ -38,24 +56,46 @@ def on_message(client, userdata, msg):
         print(f" Resultado modelo ({esp_id}): {resultado}")
 
     except Exception as e:
-        print("⚠️ Error procesando mensaje:", e)
+        print(" Error procesando mensaje:", e)
 
 
 def init_mqtt():
     """Arranca el cliente MQTT en segundo plano sin bloquear FastAPI."""
-    cargar_modelos()
 
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
 
     client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
     client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
+
     client.connect(MQTT_HOST, MQTT_PORT)
 
     # ---- LOOP en un hilo ----
-    thread = threading.Thread(target=client.loop_forever)
-    thread.daemon = True
-    thread.start()
+   
+    client.loop_start()
 
     print("✔ MQTT corriendo en background")
+
+      # Monitor de inactividad
+    def inactivity_monitor():
+        global last_message_time, is_connected
+        while True:
+            time.sleep(5)
+            
+            if not is_connected:
+                continue
+
+            time.sleep(5)
+            if time.time() - last_message_time > INACTIVITY_TIMEOUT:
+                print(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT}s, desconectando MQTT...")
+            
+                client.disconnect()
+                is_connected = False
+                break
+                
+
+    monitor_thread = threading.Thread(target=inactivity_monitor, daemon=True)
+    monitor_thread.start()

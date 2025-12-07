@@ -1,15 +1,16 @@
 import json
 import paho.mqtt.client as mqtt
 import time
+import os
 
 # Tokens únicos por dispositivo ThingsBoard
 DEVICE_TOKENS = {
-    "esp32_1": "w36qq4h9d6t65e3y58z1",
-    "esp32_2": "BuGSMZgbwS5ykcJWtGQB"
+    "esp32_1": os.getenv("ESP32_1_TOKEN"), 
+    "esp32_2": os.getenv("ESP32_2_TOKEN")
 }
 
-TB_HOST = "dashfiremonitorsys.app"
-TB_PORT = 1883   # MQTT sin TLS (el que usa tu server)
+TB_HOST = os.getenv("TB_HOST")  # Nombre del servidor ThingsBoard
+TB_PORT = int(os.getenv("TB_PORT"))  # MQTT 
 
 def enviar_a_thingsboard(esp_id: str, datos: dict):
     """

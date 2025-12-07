@@ -1,15 +1,11 @@
 # app/predictor.py
 
-import numpy as np
-import pandas as pd
-from app.models.AI_model import get_modelo_y_scaler
+import requests
+import os
+
+MODEL_URL = os.getenv("MODEL_URL") # Nombre del contenedor Edge Impulse
 
 def process_message(esp_id, payload):
-    """
-    Procesa los datos crudos de un ESP32, los escala, predice con el modelo
-    correspondiente y devuelve predicción + probabilidades.
-    """
-
     # ============================
     # 1. Extraer valores crudos
     # ============================
@@ -19,53 +15,78 @@ def process_message(esp_id, payload):
         llama = int(payload["llama"])
     except KeyError as e:
         return {"error": f"Falta el campo {e}"}
-    
-
-    # Vector ordenado tal como fue durante el entrenamiento
-    X = pd.DataFrame([[temperatura, humo, llama]],columns=["temperatura", "humo", "llama"])
 
     # ============================
-    # 2. Obtener modelo correcto
+    # 2. Vector de entrada EI
     # ============================
-    model, scaler = get_modelo_y_scaler(esp_id)
+    features = [temperatura, humo, llama]
 
     # ============================
-    # 3. Normalizar con su scaler
+    # 3. Llamar contenedor EI
     # ============================
-    X_scaled = scaler.transform(X)
+    try:
+        response = requests.post(MODEL_URL, json={"features": features}, timeout=2)
+        result = response.json()
+    except Exception as e:
+        return {"error": f"No se pudo conectar al modelo: {e}"}
 
     # ============================
-    # 4. Predicción
+    # 4. Leer clasificación EI
     # ============================
-    pred = model.predict(X_scaled)[0]
+    classification = result["result"]["classification"]
 
-    # Probabilidades por clase
-    probas = model.predict_proba(X_scaled)[0]
-    clases = model.classes_
+    prob_fire = float(classification.get("fire", 0))
+    prob_flame = float(classification.get("flame", 0))
+    prob_smoke = float(classification.get("smoke-gas", 0))
+    prob_normal = float(classification.get("normal", 0))
 
-    idx = list(clases).index(pred)
-    prob_pred = round(float(probas[idx]), 4)
+    # ============================
+    # 5. Lógica personalizada de riesgo
+    # ============================
+    # Riesgo basado en cualquier condición peligrosa
+    probabilidad_score = max(prob_fire + prob_flame + prob_smoke)
 
-    clases_riesgo = ["Alerta", "Crítico"]
-    prob_incendio = sum(
-        float(prob) for clase, prob in zip(model.classes_, model.predict_proba(X_scaled)[0])
-        if clase in clases_riesgo
-    )
-    
-    if prob_incendio < 0.25:
-        riesgo = "Seguro"
-    elif prob_incendio < 0.6:
-        riesgo = "Alerta"
+    if probabilidad_score < 0.20:
+        estado = "Seguro"
+        if prob_smoke < 0.10 or prob_flame < 0.10 or prob_fire < 0.10 or prob_normal >= 0.80:
+            desc = "Condiciones normales detectadas."
+        elif prob_smoke < 0.25:
+            desc = "se detectaron fluctuaciones en el aire, monitoree la situación."
+        else:
+            desc = "calculando condiciones seguras, se recomienda vigilancia continua."
+
+    elif probabilidad_score < 0.60:
+        estado= "Alerta"
+        if prob_smoke >= 0.35:
+            desc = "Niveles elevados de humo detectados, verifique las alertas de temperatura y llama"
+        else:
+            desc = "Condiciones inestables detectadas, manténgase alerta y monitoree los sensores."
+
     else:
-        riesgo = "Crítico"
+        estado = "Crítico"
+        if prob_fire >= 0.40 :
+            desc = "Alto riesgo de incendio detectado"
+        elif prob_smoke >= 0.60:
+            desc = "Niveles críticos de humo detectados, posible incendio en curso"
+        elif prob_flame >= 0.40 and prob_smoke >= 0.40:
+            desc = "Llama y humo detectados, riesgo inminente de incendio"
+        else:
+            desc = "Condiciones peligrosas detectadas, acción inmediata requerida"
     # ============================
-    # 5. Respuesta final
+    # 6. Respuesta limpia
     # ============================
     return {
         "esp32": esp_id,
         "temperatura": temperatura,
         "humo": humo,
         "llama": llama,
-        "riesgo": riesgo,
-        "probabilidades": (prob_incendio* 100)
+        "probs": {
+            "fire": prob_fire,
+            "flame": prob_flame,
+            "smoke-gas": prob_smoke,
+            "normal": prob_normal
+        },
+        "estado": estado,
+        "descripcion": desc,    
+        "riesgo_incendio": round(prob_fire * 100, 2)  # %
     }
