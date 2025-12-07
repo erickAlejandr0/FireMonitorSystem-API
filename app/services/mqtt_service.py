@@ -18,7 +18,7 @@ MQTT_HOST = os.getenv("MQTT_HOST")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 8883))  # TLS serverless por defecto
 MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
-CA_CERT = os.getenv("MQTT_CA_CERT", "./server-ca.crt")  # Ruta al certificado EMQX
+CA_CERT = os.getenv("MQTT_CA_CERT", "emqxsl-ca.crt")  # Ruta al certificado EMQX
 
 TOPICS = [
     ("incendios/esp32_1/data", 1),
