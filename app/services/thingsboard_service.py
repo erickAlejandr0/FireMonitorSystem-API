@@ -10,7 +10,7 @@ DEVICE_TOKENS = {
 }
 
 TB_HOST = os.getenv("TB_HOST")  # Nombre del servidor ThingsBoard
-TB_PORT = int(os.getenv("TB_PORT"))  # MQTT 
+TB_PORT = os.getenv("TB_PORT")  # MQTT 
 
 def enviar_a_thingsboard(esp_id: str, datos: dict):
     """
