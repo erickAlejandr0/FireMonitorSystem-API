@@ -90,7 +90,7 @@ def process_message(esp_id, payload):
         estado= "Alerta"
         if prob_smoke >= 0.35:
             desc = "Niveles elevados de humo detectados, verifique las alertas de temperatura y llama"
-            prob_fire = breaker(0.75)
+            prob_fire = breaker(0.45)
         else:
             desc = "Condiciones inestables detectadas, mantengase alerta y monitoree los sensores."
 
@@ -100,6 +100,7 @@ def process_message(esp_id, payload):
             desc = "Alto riesgo de incendio detectado"
         elif prob_smoke >= 0.60:
             desc = "Niveles criticos de humo detectados, posible incendio en curso"
+            prob_fire = breaker(0.75)
         elif prob_flame >= 0.40 and prob_smoke >= 0.40:
             desc = "Llama y humo detectados, riesgo inminente de incendio"
         else:
