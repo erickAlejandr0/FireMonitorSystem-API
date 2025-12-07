@@ -2,8 +2,25 @@
 
 import requests
 import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 MODEL_URL = os.getenv("MODEL_URL") # Nombre del contenedor Edge Impulse
+if not MODEL_URL:
+    raise ValueError("MODEL_URL no está configurado en las variables de entorno.")
+
+def crear_sesion_con_reintentos():
+    sesion = requests.Session()
+    reintentos = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504]
+    )
+    adaptador = HTTPAdapter(max_retries=reintentos)
+    sesion.mount("http://", adaptador)
+    sesion.mount("https://", adaptador)
+    return sesion
+
 
 def process_message(esp_id, payload):
     # ============================
@@ -25,16 +42,27 @@ def process_message(esp_id, payload):
     # 3. Llamar contenedor EI
     # ============================
     try:
-        response = requests.post(MODEL_URL, json={"features": features}, timeout=2)
+        sesion= crear_sesion_con_reintentos()
+        response = sesion.post(MODEL_URL, json={"features": features}, timeout=5, headers={"Content-Type": "application/json"})
         result = response.json()
     except Exception as e:
         return {"error": f"No se pudo conectar al modelo: {e}"}
+    except requests.exceptions.Timeout:
+        return {"error": "Tiempo de espera agotado al conectar con el modelo."} 
+    except requests.exceptions.ConnectionError:
+        return {"error": f"Error de conexión al intentar contactar el modelo.{MODEL_URL}"}
+    except requests.exceptions.HTTPError as e:
+        return {"error": f"Error HTTP {response.status_code} al llamar al modelo: {e}"}
 
     # ============================
     # 4. Leer clasificación EI
     # ============================
-    classification = result["result"]["classification"]
-
+    try:
+    
+        classification = result["result"]["classification"]
+    except KeyError:
+        return {"error": f"Respuesta del modelo no tiene el formato esperado.{result}"}
+    
     prob_fire = float(classification.get("fire", 0))
     prob_flame = float(classification.get("flame", 0))
     prob_smoke = float(classification.get("smoke-gas", 0))

@@ -71,11 +71,14 @@ def init_mqtt():
 
     client.reconnect_delay_set(min_delay=1, max_delay=30)
 
-    client.connect(MQTT_HOST, MQTT_PORT)
+    try:
+        client.connect(MQTT_HOST, MQTT_PORT)
+        client.loop_start()
+        print("✔ MQTT cliente iniciado en background")
+    except Exception as e:
+        print(f"✗ Error iniciando MQTT: {e}")
+        return
 
-    # ---- LOOP en un hilo ----
-   
-    client.loop_start()
 
     print("✔ MQTT corriendo en background")
 
@@ -83,18 +86,17 @@ def init_mqtt():
     def inactivity_monitor():
         global last_message_time, is_connected
         while True:
-            time.sleep(5)
-            
+            time.sleep(INACTIVITY_TIMEOUT / 2)  # Verificar cada 30s
+
             if not is_connected:
                 continue
 
-            time.sleep(5)
-            if time.time() - last_message_time > INACTIVITY_TIMEOUT:
-                print(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT}s, desconectando MQTT...")
-            
+            time_elapsed = time.time() - last_message_time
+            if time_elapsed > INACTIVITY_TIMEOUT:
+                print(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT} segundos. Desconectando MQTT.")
                 client.disconnect()
                 is_connected = False
-                break
+                
                 
 
     monitor_thread = threading.Thread(target=inactivity_monitor, daemon=True)
