@@ -45,18 +45,33 @@ def on_message(client, userdata, msg):
     global last_message_time
     last_message_time = time.time()
     try:
-        payload = json.loads(msg.payload.decode())
-        esp_id = msg.topic.split("/")[1]
 
+        try:
+
+            payload = json.loads(msg.payload.decode())
+            esp_id = msg.topic.split("/")[1]
+        except json.JSONDecodeError as e:
+            print(f" Error decodificando JSON del mensaje recibido: {msg.payload}")
+            print(f" Detalles del error: {e}")
+            return
+        
         print(f"\n Mensaje recibido de {esp_id}: {payload}")
 
         resultado = process_message(esp_id, payload)
-        enviar_a_thingsboard(esp_id, resultado)
+        exito = enviar_a_thingsboard(esp_id, resultado)
+
+        if exito:
+            print(f" Telemetría enviada a ThingsBoard desde mqtt service para {esp_id}")
+        else:
+            print(f" Error enviando telemetría a ThingsBoard desde mqtt service para {esp_id}")
 
         print(f" Resultado modelo ({esp_id}): {resultado}")
-
+    except UnicodeDecodeError:
+        print(f" Error decodificando el mensaje recibido: {msg.payload}")
     except Exception as e:
         print(" Error procesando mensaje:", e)
+        print(" Mensaje original:", msg.payload)
+        print(f" Topic: {msg.topic} QoS: {msg.qos}")
 
 
 def init_mqtt():
