@@ -74,14 +74,16 @@ def on_message(client, userdata, msg):
         logger.info(f"Mensaje recibido de {esp_id}: {payload}")
 
         resultado = process_message(esp_id, payload)
+        time.sleep(3)  # Pequeña pausa para evitar sobrecarga
         exito = enviar_a_thingsboard(esp_id, resultado)
 
         if exito:
             logger.info(f"Telemetría enviada a ThingsBoard para {esp_id}")
+            logger.info(f"Resultado modelo enviado a TB: ({esp_id}): {resultado}")
         else:
             logger.error(f"Error enviando telemetría a ThingsBoard para {esp_id}")
 
-        logger.info(f"Resultado modelo ({esp_id}): {resultado}")
+        
 
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         logger.error(f"Error decodificando mensaje: {msg.payload} - {e}")

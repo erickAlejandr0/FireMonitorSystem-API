@@ -62,7 +62,7 @@ def enviar_a_thingsboard(esp_id: str, datos: dict) -> bool:
     
     # ===== 1. Validar ESP ID =====
     if esp_id not in DEVICE_TOKENS:
-        print(f"❌ [ThingsBoard] ESP ID no reconocido: {esp_id}")
+        print(f"[ThingsBoard] ESP ID no reconocido: {esp_id}")
         return False
 
     token = DEVICE_TOKENS[esp_id]
