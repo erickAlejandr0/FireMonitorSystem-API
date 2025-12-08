@@ -74,7 +74,6 @@ def on_message(client, userdata, msg):
         logger.info(f"Mensaje recibido de {esp_id}: {payload}")
 
         resultado = process_message(esp_id, payload)
-        time.sleep(3)  # Pequeña pausa para evitar sobrecarga
         exito = False
         
         exito = enviar_a_thingsboard(esp_id, resultado)
