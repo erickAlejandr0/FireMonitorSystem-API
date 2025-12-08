@@ -36,6 +36,15 @@ client_id = f"api_server_listener_{random.randint(0,1000)}"
 client = mqtt_client.Client(client_id=client_id, userdata=None, protocol=mqtt_client.MQTTv5)
 
 # ===== Callbacks =====
+def reconnect_if_needed():
+    global client, is_connected
+    if not is_connected:
+        try:
+            client.reconnect()
+            logger.info("Reconexión MQTT bajo demanda exitosa.")
+        except Exception as e:
+            logger.warning(f"Fallo de reconexión bajo demanda: {e}")
+
 def on_connect(client, userdata, flags, rc, properties=None):
     global is_connected
     if rc == 0:
@@ -57,6 +66,8 @@ def on_disconnect(client, userdata, rc, properties=None):
 def on_message(client, userdata, msg):
     global last_message_time
     last_message_time = time.time()
+
+    reconnect_if_needed()
     try:
         payload = json.loads(msg.payload.decode())
         esp_id = msg.topic.split("/")[1]
@@ -100,28 +111,3 @@ def init_mqtt():
         logger.exception(f"✗ Error iniciando MQTT: {e}")
         return
 
-    def inactivity_monitor():
-        global last_message_time, is_connected
-        while True:
-            time.sleep(INACTIVITY_TIMEOUT / 2)
-            elapsed = time.time() - last_message_time
-            if elapsed > INACTIVITY_TIMEOUT:
-                logger.warning(f"No se recibieron mensajes en {INACTIVITY_TIMEOUT}s. Reiniciando conexión MQTT.")
-                try:
-                    client.disconnect()
-                except Exception:
-                    pass
-                is_connected = False
-
-            while not is_connected:
-                try:
-                    client.reconnect()
-                    logger.info("Reconexión MQTT exitosa.")
-                    break
-                except Exception as e:
-                    logger.warning(f"Fallo de reconexión: {e}. Reintentando en 5s...")
-                    time.sleep(5)
-
-    monitor_thread = threading.Thread(target=inactivity_monitor, daemon=True)
-    monitor_thread.start()
-    logger.info("✔ Monitor de inactividad MQTT iniciado")
