@@ -4,6 +4,7 @@ import os
 import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import logging
 
 # ===== Configuración HTTP =====
 TB_HOST = os.getenv("TB_HOST")
@@ -13,6 +14,11 @@ DEVICE_TOKENS = {
     "esp32_1": os.getenv("ESP32_1_TOKEN"), 
     "esp32_2": os.getenv("ESP32_2_TOKEN")
 }
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ThingsBoardService")
+
 
 # Validaciones
 if not TB_HOST:
@@ -27,7 +33,7 @@ if not all(DEVICE_TOKENS.values()):
 # Construir URL base
 TB_HTTP_URL = f"http://{TB_HOST}:{TB_PORT}/api/v1"
 
-print(f"[ThingsBoard] URL configurada: {TB_HTTP_URL}")
+logger.info(f"[ThingsBoard] URL configurada: {TB_HTTP_URL}")
 
 
 def crear_sesion_con_reintentos():
@@ -97,21 +103,21 @@ def enviar_a_thingsboard(esp_id: str, datos: dict) -> bool:
         # ===== 4. Validar respuesta =====
         response.raise_for_status()
         
-        print(f"✔ [ThingsBoard] Telemetría enviada exitosamente para {esp_id}")
-        print(f"   → URL: {url}")
-        print(f"   → Payload: {json.dumps(payload, indent=2)}")
+        logger.info(f"✔ [ThingsBoard] Telemetría enviada exitosamente para {esp_id}")
+        logger.info(f"   → URL: {url}")
+        logger.info(f"   → Payload: {json.dumps(payload, indent=2)}")
         
         return True
 
     except requests.exceptions.ConnectionError as e:
-        print(f"ThingsBoard] Error de conexión a {TB_HTTP_URL}")
-        print(f"   → Verifica que ThingsBoard esté corriendo en {TB_HOST}:{TB_PORT}")
-        print(f"   → Detalles: {e}")
+        logger.error(f"[ThingsBoard] Error de conexión a {TB_HTTP_URL}")
+        logger.error(f"   → Verifica que ThingsBoard esté corriendo en {TB_HOST}:{TB_PORT}")
+        logger.error(f"   → Detalles: {e}")
         return False
         
     except requests.exceptions.Timeout:
-        print(f"[ThingsBoard] Timeout: ThingsBoard tardó más de 5 segundos en responder")
-        print(f"   → Endpoint: {url}")
+        logger.error(f"[ThingsBoard] Timeout: ThingsBoard tardó más de 5 segundos en responder")
+        logger.error(f"   → Endpoint: {url}")
         return False
         
     except requests.exceptions.HTTPError as e:
@@ -119,17 +125,17 @@ def enviar_a_thingsboard(esp_id: str, datos: dict) -> bool:
         response_text = response.text
         
         if status_code == 401:
-            print(f"[ThingsBoard] Error 401 (No autorizado): Token inválido para {esp_id}")
+            logger.error(f"[ThingsBoard] Error 401 (No autorizado): Token inválido para {esp_id}")
         elif status_code == 404:
-            print(f"[ThingsBoard] Error 404 (No encontrado): Verifica el token y la URL")
+            logger.error(f"[ThingsBoard] Error 404 (No encontrado): Verifica el token y la URL")
         else:
-            print(f"[ThingsBoard] Error HTTP {status_code}: {e}")
+            logger.error(f"[ThingsBoard] Error HTTP {status_code}: {e}")
         
-        print(f"   → Respuesta del servidor: {response_text}")
+        logger.error(f"   → Respuesta del servidor: {response_text}")
         return False
         
     except Exception as e:
-        print(f"[ThingsBoard] Error inesperado al enviar telemetría: {e}")
+        logger.error(f"[ThingsBoard] Error inesperado al enviar telemetría: {e}")
         import traceback
         traceback.print_exc()
         return False
